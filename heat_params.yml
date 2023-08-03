@@ -1,0 +1,7 @@
+parameters:
+  ssh_key_name: dellpc
+  vm_flavor: standard.small
+  vm_image:  Ubuntu-22.04 
+  vm_network: project_2001316
+  allow_ssh_cidr: 0.0.0.0/0
+  floating_ip_pool: public

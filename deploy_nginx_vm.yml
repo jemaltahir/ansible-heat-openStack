@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    heat_environment_file: "heat_params.yml"
+
+  tasks:
+    - name: Build a Heat stack for the NGINX VM
+      register: heat_stack
+      os_stack:
+        name: "nginx-vm-stack"
+        state: present
+        template: "heat_stack_vm.yml"
+        environment:
+          - "{{ heat_environment_file }}"
+
+    - name: Debug the Heat stack outputs
+      debug:
+        var: heat_stack
+    
+    # - name: Wait for the Heat stack to be created
+    #   register: heat_stack_status
+    #   os_stack:
+    #     name: "nginx-vm-stack"
+    #     state: present
+    #     template: "heat_stack_vm.yml"
+    #     environment:
+    #       - "{{ heat_environment_file }}"
+    #   until: heat_stack_status.stdout | from_json | dict2items | selectattr('key', 'equalto', 'stack_status') | map(attribute='value') | first == "CREATE_COMPLETE"
+    #   retries: 10
+    #   delay: 10
+    
+    - name: Wait for the VM to become accessible
+      wait_for:
+        host: "{{ heat_stack.stack.outputs | selectattr('output_key', 'equalto', 'floating_ip') | map(attribute='output_value') | first }}"
+        port: 22
+        state: started
+        timeout: 300
+
+    - name: Add host
+      add_host:
+        name: "{{ heat_stack.stack.outputs | selectattr('output_key', 'equalto', 'floating_ip') | map(attribute='output_value') | first }}"
+        groups: "nginx_vm"
+
+
+    
+    - name: Update the repository cache and update package "nginx" to latest version using default release squeeze-backport
+      ansible.builtin.apt:
+        name: nginx
+        state: latest
+        default_release: squeeze-backports
+        update_cache: yes
+      
